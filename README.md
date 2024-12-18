@@ -1,4 +1,4 @@
-Here are the 10 first rows of our final dataset but cou yan find the entire one under this link: 
+Here are the 10 first rows of our final dataset but cou yan find the entire one under this link: https://github.com/IvySch/DSIBA---Project-Group-J/blob/690696abc89d95e5bb0bd9ddf237d7a032b898a6/cleaned_dataset_final.csv or you can open it on excel with this following link: https://github.com/IvySch/DSIBA---Project-Group-/blob/690696abc89d95e5bb0bd9ddf237d7a032b898a6/cleaned_dataset_final.xlsx 
 
 |   Rooms |   Living_Space |   Price | Address                                  | Building_type   | Location   | possible_collocation   |   Transport_Index |   Population |
 |--------:|---------------:|--------:|:-----------------------------------------|:----------------|:-----------|:-----------------------|------------------:|-------------:|
