@@ -5,6 +5,8 @@
     <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.11.5/css/jquery.dataTables.css">
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.datatables.net/1.11.5/js/jquery.dataTables.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-csv/1.0.21/jquery.csv.min.js"></script>
+
 </head>
 <body>
     <h1>Dataset Interactif</h1>
@@ -30,31 +32,28 @@
     </table>
 
     <script>
-        $(document).ready( function () {
-            $('#example').DataTable();
-        });
-    </script>
-</body>
-</html>
+       $(document).ready(function () {
+    $.get('cleaned_dataset_final.csv', function (data) {
+        // Parse le CSV avec des point-virgules
+        var csvData = $.csv.toObjects(data, { separator: ";" });
 
-    <script>
-        // Charger le CSV avec DataTables
-        $(document).ready(function () {
-            $('#dataset').DataTable({
-                ajax: "root/cleaned_dataset_final.csv", // Chemin vers votre fichier CSV
-                columns: [
-                    { data: "Rooms" },
-                    { data: "Living_Space" },
-                    { data: "Price" },
-                    { data: "Address" },
-                    { data: "Building_type" },
-                    { data: "Location" },
-                    { data: "possible_collocation" },
-                    { data: "Transport_Index" },
-                    { data: "Population" }
-                ]
-            });
+        // Initialisation de DataTables
+        $('#dataset').DataTable({
+            data: csvData,
+            columns: [
+                { data: "Rooms", title: "Rooms" },
+                { data: "Living_Space", title: "Living Space" },
+                { data: "Price", title: "Price" },
+                { data: "Address", title: "Address" },
+                { data: "Building_type", title: "Building Type" },
+                { data: "Location", title: "Location" },
+                { data: "possible_collocation", title: "Possible Collocation" },
+                { data: "Transport_Index", title: "Transport Index" },
+                { data: "Population", title: "Population" }
+            ]
         });
-    </script>
-</body>
+    });
+});
+
+                   
 </html>
