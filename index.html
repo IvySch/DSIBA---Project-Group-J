@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dataset Interactif</title>
+    <!-- CSS pour DataTables -->
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.11.5/css/jquery.dataTables.min.css">
+    <!-- jQuery -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <!-- JS pour DataTables -->
+    <script src="https://cdn.datatables.net/1.11.5/js/jquery.dataTables.min.js"></script>
+    <!-- jquery-csv pour gérer le point-virgule -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-csv/1.0.21/jquery.csv.min.js"></script>
+</head>
+<body>
+    <h1>Dataset Interactif</h1>
+    <table id="dataset" class="display" style="width:100%">
+        <thead>
+            <tr>
+                <th>Rooms</th>
+                <th>Living_Space</th>
+                <th>Price</th>
+                <th>Address</th>
+                <th>Building_type</th>
+                <th>Location</th>
+                <th>possible_collocation</th>
+                <th>Transport_Index</th>
+                <th>Population</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+
+    <script>
+        $(document).ready(function () {
+            // Charger le fichier CSV avec le point-virgule comme séparateur
+            $.get('cleaned_dataset_final.csv', function (data) {
+                var csvData = $.csv.toObjects(data, { separator: ";" });
+
+                // Créer les lignes pour DataTables
+                $('#dataset').DataTable({
+                    data: csvData,
+                    columns: [
+                        { data: "Rooms" },
+                        { data: "Living_Space" },
+                        { data: "Price" },
+                        { data: "Address" },
+                        { data: "Building_type" },
+                        { data: "Location" },
+                        { data: "possible_collocation" },
+                        { data: "Transport_Index" },
+                        { data: "Population" }
+                    ]
+                });
+            });
+        });
+    </script>
+</body>
+</html>
