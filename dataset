@@ -1,33 +1,51 @@
-<!-- DataTables CSS -->
-<link rel="stylesheet" href="https://cdn.datatables.net/1.11.5/css/jquery.dataTables.min.css">
-<!-- jQuery -->
-<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-<!-- DataTables JS -->
-<script src="https://cdn.datatables.net/1.11.5/js/jquery.dataTables.min.js"></script>
-$(document).ready(function () {
-    $('#dataset').DataTable({
-        paging: true,       // Active la pagination
-        searching: true,    // Active la barre de recherche
-        ordering: true      // Active le tri
-    });
-});
-<table id="dataset" class="display">
-    <thead>
-        <tr>
-            <th>Rooms</th>
-            <th>Living_Space</th>
-            <th>Price</th>
-            <th>Address</th>
-            <th>Building_type</th>
-            <th>Location</th>
-            <th>possible_collocation</th>
-        </tr>
-    </thead>
-    <tbody>
-        <!-- Lignes du tableau ici -->
-    </tbody>
-</table>
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Dataset Interactif</title>
+    <!-- CSS pour DataTables -->
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.11.5/css/jquery.dataTables.min.css">
+    <!-- jQuery -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <!-- JS pour DataTables -->
+    <script src="https://cdn.datatables.net/1.11.5/js/jquery.dataTables.min.js"></script>
+</head>
+<body>
+    <h1>Dataset Interactif</h1>
+    <table id="dataset" class="display" style="width:100%">
+        <thead>
+            <tr>
+                <th>Rooms</th>
+                <th>Living_Space</th>
+                <th>Price</th>
+                <th>Address</th>
+                <th>Building_type</th>
+                <th>Location</th>
+                <th>possible_collocation</th>
+                <th>Transport_Index</th>
+                <th>Population</th>
+            </tr>
+        </thead>
+    </table>
 
-
-               
-                 
+    <script>
+        // Charger le CSV avec DataTables
+        $(document).ready(function () {
+            $('#dataset').DataTable({
+                ajax: "cleaned_dataset_final.csv", // Chemin vers votre fichier CSV
+                columns: [
+                    { data: "Rooms" },
+                    { data: "Living_Space" },
+                    { data: "Price" },
+                    { data: "Address" },
+                    { data: "Building_type" },
+                    { data: "Location" },
+                    { data: "possible_collocation" },
+                    { data: "Transport_Index" },
+                    { data: "Population" }
+                ]
+            });
+        });
+    </script>
+</body>
+</html>
