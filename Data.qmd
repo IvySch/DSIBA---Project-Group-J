@@ -1,0 +1,1057 @@
+---
+title: "2 Data"
+format: html
+editor: visual
+---
+
+## 2 Data
+
+### 2.1 Sources
+
+For our project, our main data source was the website Immoscout24. We used web scrapping to extract relevant data, specifically focusing on real estate listings for the Lausanne region. Additionally, we incorporated demographic data using the State of Vaud document on the permanent resident population as of December 31, 2023. To further enrich our analysis, we developed a public transport service index using data from the Lausanne Public Transport website. This index was created with the help of ChatGPT, considering factors such as frequency of transport, proximity of stops, diversity of transport modes, and accessibility to key areas.
+
+### 2.2 Description
+
+Our dataset consists of nine variables spanning numerical, textual, and binary data types. The numerical variables include the rental price of each property, the living space measured in square meters, and the total number of rooms. Additionally, we developed a public transport service index ranging from 0.25 to 1.50 (the most accessible), which measures accessibility to transport services based on proximity, frequency, and diversity of options.
+
+The textual variables include the full address of each listing, the building type (e.g., apartment, house, or studio), and the location variable. The location was extracted directly from the address column and homogenized to ensure consistency, grouping smaller villages into their corresponding municipalities.
+
+To be more specific, we have reclassified properties with one room as “Studio” in the building type category. A binary variable, titled possible collocation, was also added to indicate whether a property could be suitable for shared accommodation. We defined properties with 2.5 or more rooms as suitable for collocation. All variables were consolidated into a single R data frame providing us with a comprehensive view of the entire dataset. The data collection was finalized on December 3, 2024, ensuring its relevance and timeliness for the study.
+
+### 2.3 Wrangling & Cleaning
+
+Our data collection and cleaning process was done simultaneously through scraping. Using dynamic filters on the Immoscout24 website, we extracted data for specific building types across the Lausanne, Oron-Lavaux and Lausanne Ouest districts. The extracted variables included price, surface area, number of rooms, building type, and address. The first manipulation was extracting and standardizing the location variable by identifying the municipality name within each address. This was achieved using this code:\
+
+```{r, eval = FALSE}
+# Load required libraries
+library(dplyr)
+library(stringr)
+# Scraping and loading data
+merged_dataset <- read.csv("modified_dataset.csv", stringsAsFactors = FALSE)
+# Extract city/village name from the address
+merged_dataset <- merged_dataset %>%
+  mutate(
+    Location = str_extract(Address, "\\d{4}\\s[\\wÀ-ÿ\\-\\s]+") %>%
+      str_remove("^\\d{4}\\s") %>%
+      str_trim()
+  )
+```
+
+The location variable was further homogenized to group the names of villages written differently under a common script.
+
+![](images/clipboard-4094207312.png)
+
+This was done with this code:
+
+```{r, eval = FALSE}
+# Homogenize location names 
+merged_dataset <- merged_dataset %>%
+  mutate(
+    Location = str_to_title(Location),  # Standardize capitalization
+    Location = case_when(
+      str_detect(Location, "Lausanne|LAUSANNE|Lausanne 27|Lausanne 25") ~ "Lausanne",
+      str_detect(Location, "Le Mont-sur-Lausanne|Le-Mont-sur-Lausanne") ~ "Le-Mont-sur-Lausanne",
+      str_detect(Location, "Epalinges|Épalinges") ~ "Epalinges",
+      TRUE ~ Location
+    )
+  )
+
+#| echo: false
+2 * 2
+```
+
+The `echo: false` option disables the printing of code (only output is displayed).
+
+Then, we grouped the small villages into their municipalities so that we could find the demographic data relating to them.
+
+```{r, eval=FALSE}
+# Replace locations by their township 
+merged_dataset <- merged_dataset %>%
+  mutate(
+    Location = case_when(
+      Location == "La Croix" ~ "Lutry",
+      Location == "La Conversion" ~ "Lutry",
+      Location == "Essertes" ~ "Oron",
+      Location == "Aran" ~ "Bourg-en-Lavaux",
+      Location == "Riex" ~ "Bourg-en-Lavaux",
+      Location == "Epesses" ~ "Bourg-en-Lavaux",
+      Location == "Chenaux" ~ "Oron",
+      Location == "Châtillens" ~ "Oron",
+      Location == "Palézieux" ~ "Oron",
+      Location == "Palézieux-Village" ~ "Oron",
+      Location == "Mollie-Margot" ~ "Savigny",
+      Location == "Les Cullayes" ~ "Servion",
+      Location == "Chesalles-Sur-Oron" ~ "Oron",
+      Location == "Oron-La-Ville" ~ "Oron",
+      Location == "Mézières Vd" ~ "Mézières",
+      Location == "Carrouge Vd" ~ "Mézières",
+      
+      TRUE ~ Location  # Keep all other locations as they are
+    )
+  )
+
+```
+
+As our topic focuses on students, we added a column to assess the possibility of collocation. We created a possible collocation variable based on the number of rooms, marking properties with 2.5 or more rooms as suitable for shared housing.
+
+To assess the possibility of collocation, we included the following code:
+
+```{r, eval=FALSE}
+#Adding the variable "possible collocation" 
+if ("Rooms" %in% colnames(merged_dataset)) {
+  # Add the new column 'possible_collocation'
+  merged_dataset <- merged_dataset %>% 
+    mutate(possible_collocation = ifelse(Rooms >= 2.5, "yes", "no"))
+
+```
+
+We also integrated the public transport service index by assigning predefined values to each municipality:
+
+```{r, eval=FALSE}
+# Define the transport indices as a named vector
+transport_indices <- c(
+  "Lausanne" = 1.50, "Epalinges" = 1.25, "Jouxtens-Mézery" = 0.25, "Pully" = 1.25,
+  "Chexbres" = 0.25, "Lutry" = 1.25, "Puidoux" = 0.25, "Forel" = 0.25,
+  "Savigny" = 0.25, "Rivaz" = 0.25, "Oron" = 1.00, "Cully" = 0.25,
+  "Mézières Vd" = 0.25, "Grandvaux" = 1.25, "Paudex" = 1.25, 
+  "Bourg-en-Lavaux" = 1.25, "Servion" = 0.25, "St-Saphorin" = 0.25,
+  "Maracon" = 0.25, "Renens" = 1.50, "Crissier" = 1.50, "Prilly" = 1.50,
+  "Ecublens" = 1.50, "Bussigny" = 1.25, "Saint-Sulpice" = 1.25,
+  "Villars-Ste-Croix" = 0.25
+)
+
+```
+
+At the end of our data collection, we had 8 missing data for the prices which we decided to add by hand given the small amount. After that, we had 15,75% NAs in terms of the number of rooms and surface areas that we decided to remove to have a perfectly cleaned database.
+
+```{r, eval=FALSE}
+# Code cleaning our dataset by deleting NAs
+# Remove rows with NA in 'Rooms' or 'Living_Space' columns
+cleaned_dataset <- merged_dataset %>%
+  filter(!is.na(Rooms) & !is.na(Living_Space))  # Keep only rows where these columns are not NA
+
+```
+
+### 2.4 Spotting Mistakes and Missing Data
+
+Throughout the web scraping and cleaning process, we encountered several challenges. The dynamic nature of the Immoscout24 website required us to extract data district by district, as a single automated query could not capture all listings. Misplaced values caused inconsistencies where surface area values appeared in the "Number of Rooms" column. To address this issue, we had to manually modify entries where the number of rooms was missing or where the column contained values in square meters instead. In these cases, we assumed a default value of 1 room, as this problem primarily affected studios or single-room apartments.
+
+![](images/clipboard-3881690619.png)
+
+Here is the code that we applied:
+
+```{r, eval=FALSE}
+# Replace the values containing "m²" in the 'Rooms' column by 1
+merged_dataset$Rooms <- ifelse(grepl("m²", merged_dataset$Rooms, ignore.case = TRUE), 1, dataset$Rooms)
+cat("Les données contenant 'm²' dans la colonne 'Rooms' ont été remplacées par 1 dans 'dataset_complet'.\n")
+# Show the first rows of the dataset
+head(merged_dataset)
+
+#Replacing the building type of appartment of 1 room by "Studio"
+merged_dataset <- merged_dataset %>%
+  mutate(Building_type = ifelse(Rooms == 1, "Studio", Building_type))
+
+```
+
+Furthermore, some listings did not contain values for surface area. To find them, we had to manually extract them from individual listing pages. Finally, technical issues such as IP blocking and structural changes on the website required iterative adjustments to our scraping code. For instance, this limited us as we wanted to include the year of construction of the buildings in our dataset, but we were not successful because the Immoscout24 website is dynamic, and we could not apply the same html codes for each ad.
+
+### 2.5 Listing Anomalies and Outliers
+
+Several anomalies were identified and addressed during the cleaning process. Studios often lacked proper room counts, leading to misplacements in numerical columns, which we corrected systematically. Duplicate names for location were grouped to maintain accuracy.
+
+We also had to revise our code multiple times because the data from Immoscout 24 wasn’t always reported correctly. The website itself also caused some issues with its changing structure that broke parts of our scraping code and forced us to adjust. These problems made us realize how challenging it can be to work with scraped data and how important it is to validate and clean the data carefully.
+
+### 2.6 Final Database and its Code
+
+After all this cleaning process, we obtained our final database containing 1005 observations and 9 variables.
+
+Here is the code that allowed us to create it:
+
+```{r, eval=FALSE}
+# Code scrapping 
+# Ouest Lausannois District
+library(rvest)
+library(dplyr)
+library(stringr)
+
+scrape_ouest_lausannois_page <- function(url) {
+  # Read the webpage
+  page <- tryCatch(read_html(url), error = function(e) NULL)
+  if (is.null(page)) return(NULL) # Return NULL if the page fails to load
+  
+  # Extract all listing containers
+  listings <- page %>%
+    html_elements(".HgListingCard_info_RKrwz") # Parent container for each listing
+  
+  # Initialize vectors to store data
+  rooms <- c()
+  living_space <- c()
+  price <- c()
+  addresses <- c()
+  descriptions <- c()
+  
+  # Loop through each listing to extract data
+  for (listing in listings) {
+    # Extract rooms, living space, and price together from the same block
+    rooms_space_price <- listing %>%
+      html_element(".HgListingRoomsLivingSpacePrice_roomsLivingSpacePrice_M6Ktp")
+    
+    # Extract rooms
+    room <- rooms_space_price %>%
+      html_element("strong:first-child") %>%
+      html_text(trim = TRUE)
+    rooms <- c(rooms, room)
+    
+    # Extract living space
+    space <- rooms_space_price %>%
+      html_element("strong[title='surface habitable']") %>%
+      html_text(trim = TRUE) %>%
+      str_replace("m²", "") %>%
+      as.numeric()
+    living_space <- c(living_space, space)
+    
+    # Extract price
+    price_value <- rooms_space_price %>%
+      html_element(".HgListingRoomsLivingSpacePrice_price_u9Vee") %>%
+      html_text(trim = TRUE) %>%
+      str_replace_all("[^\\d]", "") %>%
+      as.numeric()
+    price <- c(price, price_value)
+    
+    # Extract address
+    address <- listing %>%
+      html_element(".HgListingCard_address_JGiFv address") %>%
+      html_text(trim = TRUE)
+    addresses <- c(addresses, address)
+    
+    # Extract description
+    description <- listing %>%
+      html_element(".HgListingDescription_description_r5HCO") %>%
+      html_text(trim = TRUE)
+    descriptions <- c(descriptions, description)
+  }
+  
+  # Combine into a data frame
+  final_data <- data.frame(
+    Rooms = rooms,
+    Living_Space = living_space,
+    Price = price,
+    Address = addresses,
+    Description = descriptions,
+    stringsAsFactors = FALSE
+  )
+  
+  return(final_data)
+}
+
+# Function to scrape all pages for Ouest Lausannois
+scrape_ouest_lausannois_all_pages <- function(base_url, max_pages = 15) {
+  all_data <- data.frame(
+    Rooms = character(),
+    Living_Space = numeric(),
+    Price = numeric(),
+    Address = character(),
+    Description = character(),
+    stringsAsFactors = FALSE
+  )
+  
+  for (page_number in 1:max_pages) {
+    url <- paste0(base_url, "?pn=", page_number)
+    message("Scraping page: ", page_number)
+    
+    Sys.sleep(5)  # Avoid being blocked
+    
+    page_data <- scrape_ouest_lausannois_page(url)
+    if (is.null(page_data) || nrow(page_data) == 0) {
+      message("No more data available, stopping pagination.")
+      break
+    }
+    
+    all_data <- bind_rows(all_data, page_data)
+  }
+  
+  return(all_data)
+}
+
+# Base URL for Ouest Lausannois District
+ouest_lausannois_base_url <- "https://www.immoscout24.ch/fr/appartement/louer/region-lausannois"
+
+# Scrape all pages for Ouest Lausannois
+ouest_lausannois_final_data <- scrape_ouest_lausannois_all_pages(ouest_lausannois_base_url)
+
+# Save to a CSV file
+write.csv(ouest_lausannois_final_data, "ouest_lausannois_cleaned_data.csv", row.names = FALSE)
+
+# Print a message when done
+message("Scraping complete! Data saved to 'ouest_lausannois_cleaned_data.csv'.")
+
+# Lausanne District
+library(rvest)
+library(dplyr)
+library(stringr)
+
+scrape_lausanne_page <- function(url) {
+  # Read the webpage
+  page <- tryCatch(read_html(url), error = function(e) NULL)
+  if (is.null(page)) return(NULL) # Return NULL if the page fails to load
+  
+  # Extract all listing containers
+  listings <- page %>%
+    html_elements(".HgListingCard_info_RKrwz") # Parent container for each listing
+  
+  # Initialize vectors to store data
+  rooms <- c()
+  living_space <- c()
+  price <- c()
+  addresses <- c()
+  descriptions <- c()
+  
+  # Loop through each listing to extract data
+  for (listing in listings) {
+    # Extract rooms, living space, and price together from the same block
+    rooms_space_price <- listing %>%
+      html_element(".HgListingRoomsLivingSpacePrice_roomsLivingSpacePrice_M6Ktp")
+    
+    # Extract rooms
+    room <- rooms_space_price %>%
+      html_element("strong:first-child") %>%
+      html_text(trim = TRUE)
+    rooms <- c(rooms, room)
+    
+    # Extract living space
+    space <- rooms_space_price %>%
+      html_element("strong[title='surface habitable']") %>%
+      html_text(trim = TRUE) %>%
+      str_replace("m²", "") %>%
+      as.numeric()
+    living_space <- c(living_space, space)
+    
+    # Extract price
+    price_value <- rooms_space_price %>%
+      html_element(".HgListingRoomsLivingSpacePrice_price_u9Vee") %>%
+      html_text(trim = TRUE) %>%
+      str_replace_all("[^\\d]", "") %>%
+      as.numeric()
+    price <- c(price, price_value)
+    
+    # Extract address
+    address <- listing %>%
+      html_element(".HgListingCard_address_JGiFv address") %>%
+      html_text(trim = TRUE)
+    addresses <- c(addresses, address)
+    
+    # Extract description
+    description <- listing %>%
+      html_element(".HgListingDescription_description_r5HCO") %>%
+      html_text(trim = TRUE)
+    descriptions <- c(descriptions, description)
+  }
+  
+  # Combine into a data frame
+  final_data <- data.frame(
+    Rooms = rooms,
+    Living_Space = living_space,
+    Price = price,
+    Address = addresses,
+    Description = descriptions,
+    stringsAsFactors = FALSE
+  )
+  
+  return(final_data)
+}
+
+# Function to scrape all pages for Lausanne et Environs
+scrape_lausanne_all_pages <- function(base_url, max_pages = 50) {
+  all_data <- data.frame(
+    Rooms = character(),
+    Living_Space = numeric(),
+    Price = numeric(),
+    Address = character(),
+    Description = character(),
+    stringsAsFactors = FALSE
+  )
+  
+  for (page_number in 1:max_pages) {
+    url <- paste0(base_url, "?pn=", page_number)
+    message("Scraping page: ", page_number)
+    
+    Sys.sleep(5)  # Avoid being blocked
+    
+    page_data <- scrape_lausanne_page(url)
+    if (is.null(page_data) || nrow(page_data) == 0) {
+      message("No more data available, stopping pagination.")
+      break
+    }
+    
+    all_data <- bind_rows(all_data, page_data)
+  }
+  
+  return(all_data)
+}
+
+# Base URL for Lausanne District
+lausanne_base_url <- "https://www.immoscout24.ch/fr/appartement/louer/region-lausanne-et-environs"
+
+# Scrape all pages for Lausanne 
+lausanne_final_data <- scrape_lausanne_all_pages(lausanne_base_url)
+
+# Save to a CSV file
+write.csv(lausanne_final_data, "lausanne_cleaned_data.csv", row.names = FALSE)
+
+# Print a message when done
+message("Scraping complete! Data saved to 'lausanne_cleaned_data.csv'.")
+
+# Ouest Lausannois Houses
+library(rvest)
+library(dplyr)
+library(stringr)
+
+scrape_ouest_lausannois_houses_page <- function(url) {
+  # Read the webpage
+  page <- tryCatch(read_html(url), error = function(e) NULL)
+  if (is.null(page)) return(NULL) # Return NULL if the page fails to load
+  
+  # Extract all listing containers
+  listings <- page %>%
+    html_elements(".HgListingCard_info_RKrwz") # Parent container for each listing
+  
+  # Initialize vectors to store data
+  rooms <- c()
+  living_space <- c()
+  price <- c()
+  addresses <- c()
+  descriptions <- c()
+  
+  # Loop through each listing to extract data
+  for (listing in listings) {
+    # Extract rooms, living space, and price together from the same block
+    rooms_space_price <- listing %>%
+      html_element(".HgListingRoomsLivingSpacePrice_roomsLivingSpacePrice_M6Ktp")
+    
+    # Extract rooms
+    room <- rooms_space_price %>%
+      html_element("strong:first-child") %>%
+      html_text(trim = TRUE)
+    rooms <- c(rooms, room)
+    
+    # Extract living space
+    space <- rooms_space_price %>%
+      html_element("strong[title='surface habitable']") %>%
+      html_text(trim = TRUE) %>%
+      str_replace("m²", "") %>%
+      as.numeric()
+    living_space <- c(living_space, space)
+    
+    # Extract price
+    price_value <- rooms_space_price %>%
+      html_element(".HgListingRoomsLivingSpacePrice_price_u9Vee") %>%
+      html_text(trim = TRUE) %>%
+      str_replace_all("[^\\d]", "") %>%
+      as.numeric()
+    price <- c(price, price_value)
+    
+    # Extract address
+    address <- listing %>%
+      html_element(".HgListingCard_address_JGiFv address") %>%
+      html_text(trim = TRUE)
+    addresses <- c(addresses, address)
+    
+    # Extract description
+    description <- listing %>%
+      html_element(".HgListingDescription_description_r5HCO") %>%
+      html_text(trim = TRUE)
+    descriptions <- c(descriptions, description)
+  }
+  
+  # Combine into a data frame
+  final_data <- data.frame(
+    Rooms = rooms,
+    Living_Space = living_space,
+    Price = price,
+    Address = addresses,
+    Description = descriptions,
+    stringsAsFactors =    FALSE
+  )
+  
+  return(final_data)
+}
+
+# Function to scrape all pages for l'Ouest Lausannois houses
+scrape_ouest_lausannois_houses_all_pages <- function(base_url, max_pages = 15) {
+  all_data <- data.frame(
+    Rooms = character(),
+    Living_Space = numeric(),
+    Price = numeric(),
+    Address = character(),
+    Description = character(),
+    stringsAsFactors = FALSE
+  )
+  
+  for (page_number in 1:max_pages) {
+    url <- paste0(base_url, "?pn=", page_number)
+    message("Scraping page: ", page_number)
+    
+    Sys.sleep(5)  # Avoid being blocked
+    
+    page_data <- scrape_ouest_lausannois_houses_page(url)
+    if (is.null(page_data) || nrow(page_data) == 0) {
+      message("No more data available, stopping pagination.")
+      break
+    }
+    
+    all_data <- bind_rows(all_data, page_data)
+  }
+  
+  return(all_data)
+}
+
+# Base URL for l'Ouest Lausannois Houses
+ouest_lausannois_houses_base_url <- "https://www.immoscout24.ch/fr/maison/louer/region-lausannois"
+
+# Scrape all pages for l'Ouest Lausannois houses
+ouest_lausannois_houses_final_data <- scrape_ouest_lausannois_houses_all_pages(ouest_lausannois_houses_base_url)
+
+# Save to a CSV file
+write.csv(ouest_lausannois_houses_final_data, "ouest_lausannois_houses_cleaned_data.csv", row.names = FALSE)
+
+# Print a message when done
+message("Scraping complete! Data saved to 'ouest_lausannois_houses_cleaned_data.csv'.")
+
+# Lausanne Houses
+library(rvest)
+library(dplyr)
+library(stringr)
+
+scrape_houses_lausanne_page <- function(url) {
+  # Read the webpage
+  page <- tryCatch(read_html(url), error = function(e) NULL)
+  if (is.null(page)) return(NULL) # Return NULL if the page fails to load
+  
+  # Extract all listing containers
+  listings <- page %>%
+    html_elements(".HgListingCard_info_RKrwz") # Parent container for each listing
+  
+  # Initialize vectors to store data
+  rooms <- c()
+  living_space <- c()
+  price <- c()
+  addresses <- c()
+  descriptions <- c()
+  
+  # Loop through each listing to extract data
+  for (listing in listings) {
+    # Extract rooms, living space, and price together from the same block
+    rooms_space_price <- listing %>%
+      html_element(".HgListingRoomsLivingSpacePrice_roomsLivingSpacePrice_M6Ktp")
+    
+    # Extract rooms
+    room <- rooms_space_price %>%
+      html_element("strong:first-child") %>%
+      html_text(trim = TRUE)
+    rooms <- c(rooms, room)
+    
+    # Extract living space
+    space <- rooms_space_price %>%
+      html_element("strong[title='surface habitable']") %>%
+      html_text(trim = TRUE) %>%
+      str_replace("m²", "") %>%
+      as.numeric()
+    living_space <- c(living_space, space)
+    
+    # Extract price
+    price_value <- rooms_space_price %>%
+      html_element(".HgListingRoomsLivingSpacePrice_price_u9Vee") %>%
+      html_text(trim = TRUE) %>%
+      str_replace_all("[^\\d]", "") %>%
+      as.numeric()
+    price <- c(price, price_value)
+    
+    # Extract address
+    address <- listing %>%
+      html_element(".HgListingCard_address_JGiFv address") %>%
+      html_text(trim = TRUE)
+    addresses <- c(addresses, address)
+    
+    # Extract description
+    description <- listing %>%
+      html_element(".HgListingDescription_description_r5HCO") %>%
+      html_text(trim = TRUE)
+    descriptions <- c(descriptions, description)
+  }
+  
+  # Combine into a data frame
+  final_data <- data.frame(
+    Rooms = rooms,
+    Living_Space = living_space,
+    Price = price,
+    Address = addresses,
+    Description = descriptions,
+    stringsAsFactors = FALSE
+  )
+  
+  return(final_data)
+}
+
+# Function to scrape all pages for houses in Lausanne and its surrounding
+scrape_houses_lausanne_all_pages <- function(base_url, max_pages = 15) {
+  all_data <- data.frame(
+    Rooms = character(),
+    Living_Space = numeric(),
+    Price = numeric(),
+    Address = character(),
+    Description = character(),
+    stringsAsFactors = FALSE
+  )
+  
+  for (page_number in 1:max_pages) {
+    url <- paste0(base_url, "?pn=", page_number)
+    message("Scraping page: ", page_number)
+    
+    Sys.sleep(5)  # Avoid being blocked
+    
+    page_data <- scrape_houses_lausanne_page(url)
+    if (is.null(page_data) || nrow(page_data) == 0) {
+      message("No more data available, stopping pagination.")
+      break
+    }
+    
+    all_data <- bind_rows(all_data, page_data)
+  }
+  
+  return(all_data)
+}
+
+# Base URL for Lausanne district Houses
+lausanne_houses_base_url <- "https://www.immoscout24.ch/fr/maison/louer/region-lausanne-et-environs"
+
+# Scrape all pages for houses in Lausanne and its surrounding
+lausanne_houses_final_data <- scrape_houses_lausanne_all_pages(lausanne_houses_base_url)
+
+# Save to a CSV file
+write.csv(lausanne_houses_final_data, "lausanne_houses_cleaned_data.csv", row.names = FALSE)
+
+# Print a message when done
+message("Scraping complete! Data saved to 'lausanne_houses_cleaned_data.csv'.")
+
+# Lavaux-Oron Houses
+library(rvest)
+library(dplyr)
+library(stringr)
+
+scrape_lavaux_oron_houses_page <- function(url) {
+  # Read the webpage
+  page <- tryCatch(read_html(url), error = function(e) NULL)
+  if (is.null(page)) return(NULL) # Return NULL if the page fails to load
+  
+  # Extract all listing containers
+  listings <- page %>%
+    html_elements(".HgListingCard_info_RKrwz") # Parent container for each listing
+  
+  # Initialize vectors to store data
+  rooms <- c()
+  living_space <- c()
+  price <- c()
+  addresses <- c()
+  descriptions <- c()
+  
+  # Loop through each listing to extract data
+  for (listing in listings) {
+    # Extract rooms, living space, and price together from the same block
+    rooms_space_price <- listing %>%
+      html_element(".HgListingRoomsLivingSpacePrice_roomsLivingSpacePrice_M6Ktp")
+    
+    # Extract rooms
+    room <- rooms_space_price %>%
+      html_element("strong:first-child") %>%
+      html_text(trim = TRUE)
+    rooms <- c(rooms, room)
+    
+    # Extract living space
+    space <- rooms_space_price %>%
+      html_element("strong[title='surface habitable']") %>%
+      html_text(trim = TRUE) %>%
+      str_replace("m²", "") %>%
+      as.numeric()
+    living_space <- c(living_space, space)
+    
+    # Extract price
+    price_value <- rooms_space_price %>%
+      html_element(".HgListingRoomsLivingSpacePrice_price_u9Vee") %>%
+      html_text(trim = TRUE) %>%
+      str_replace_all("[^\\d]", "") %>%
+      as.numeric()
+    price <- c(price, price_value)
+    
+    # Extract address
+    address <- listing %>%
+      html_element(".HgListingCard_address_JGiFv address") %>%
+      html_text(trim = TRUE)
+    addresses <- c(addresses, address)
+    
+    # Extract description
+    description <- listing %>%
+      html_element(".HgListingDescription_description_r5HCO") %>%
+      html_text(trim = TRUE)
+    descriptions <- c(descriptions, description)
+  }
+  
+  # Combine into a data frame
+  final_data <- data.frame(
+    Rooms = rooms,
+    Living_Space = living_space,
+    Price = price,
+    Address = addresses,
+    Description = descriptions,
+    stringsAsFactors = FALSE
+  )
+  
+  return(final_data)
+}
+
+# Function to scrape all pages for Lavaux-Oron houses
+scrape_lavaux_oron_houses_all_pages <- function(base_url, max_pages = 15) {
+  all_data <- data.frame(
+    Rooms = character(),
+    Living_Space = numeric(),
+    Price = numeric(),
+    Address = character(),
+    Description = character(),
+    stringsAsFactors = FALSE
+  )
+  
+  for (page_number in 1:max_pages) {
+    url <- paste0(base_url, "?pn=", page_number)
+    message("Scraping page: ", page_number)
+    
+    Sys.sleep(5)  # Avoid being blocked
+    
+    page_data <- scrape_lavaux_oron_houses_page(url)
+    if (is.null(page_data) || nrow(page_data) == 0) {
+      message("No more data available, stopping pagination.")
+      break
+    }
+    
+    all_data <- bind_rows(all_data, page_data)
+  }
+  
+  return(all_data)
+}
+
+# Base URL for Lavaux-Oron Houses
+lavaux_oron_houses_base_url <- "https://www.immoscout24.ch/fr/maison/louer/region-lavauxoron"
+
+# Scrape all pages for Lavaux-Oron houses
+lavaux_oron_houses_final_data <- scrape_lavaux_oron_houses_all_pages(lavaux_oron_houses_base_url)
+
+# Save to a CSV file
+write.csv(lavaux_oron_houses_final_data, "lavaux_oron_houses_cleaned_data.csv", row.names = FALSE)
+
+# Print a message when done
+message("Scraping complete! Data saved to 'lavaux_oron_houses_cleaned_data.csv'.")
+
+# Lavaux-Oron Apartments
+library(rvest)
+library(dplyr)
+library(stringr)
+
+scrape_lavaux_oron_page <- function(url) {
+  # Read the webpage
+  page <- tryCatch(read_html(url), error = function(e) NULL)
+  if (is.null(page)) return(NULL) # Return NULL if the page fails to load
+  
+  # Extract all listing containers
+  listings <- page %>%
+    html_elements(".HgListingCard_info_RKrwz") # Parent container for each listing
+  
+  # Initialize vectors to store data
+  rooms <- c()
+  living_space <- c()
+  price <- c()
+  addresses <- c()
+  descriptions <- c()
+  
+  # Loop through each listing to extract data
+  for (listing in listings) {
+    # Extract rooms, living space, and price together from the same block
+    rooms_space_price <- listing %>%
+      html_element(".HgListingRoomsLivingSpacePrice_roomsLivingSpacePrice_M6Ktp")
+    
+    # Extract rooms
+    room <- rooms_space_price %>%
+      html_element("strong:first-child") %>%
+      html_text(trim = TRUE)
+    rooms <- c(rooms, room)
+    
+    # Extract living space
+    space <- rooms_space_price %>%
+      html_element("strong[title='surface habitable']") %>%
+      html_text(trim = TRUE) %>%
+      str_replace("m²", "") %>%
+      as.numeric()
+    living_space <- c(living_space, space)
+    
+    # Extract price
+    price_value <- rooms_space_price %>%
+      html_element(".HgListingRoomsLivingSpacePrice_price_u9Vee") %>%
+      html_text(trim = TRUE) %>%
+      str_replace_all("[^\\d]", "") %>%
+      as.numeric()
+    price <- c(price, price_value)
+    
+    # Extract address
+    address <- listing %>%
+      html_element(".HgListingCard_address_JGiFv address") %>%
+      html_text(trim = TRUE)
+    addresses <- c(addresses, address)
+    
+    # Extract description
+    description <- listing %>%
+      html_element(".HgListingDescription_description_r5HCO") %>%
+      html_text(trim = TRUE)
+    descriptions <- c(descriptions, description)
+  }
+  
+  # Combine into a data frame
+  final_data <- data.frame(
+    Rooms = rooms,
+    Living_Space = living_space,
+    Price = price,
+    Address = addresses,
+    Description = descriptions,
+    stringsAsFactors = FALSE
+  )
+  
+  return(final_data)
+}
+
+# Function to scrape all pages for Lavaux-Oron apartments
+scrape_lavaux_oron_all_pages <- function(base_url, max_pages = 15) {
+  all_data <- data.frame(
+    Rooms = character(),
+    Living_Space = numeric(),
+    Price = numeric(),
+    Address = character(),
+    Description = character(),
+    stringsAsFactors = FALSE
+  )
+  
+  for (page_number in 1:max_pages) {
+    url <- paste0(base_url, "?pn=", page_number)
+    message("Scraping page: ", page_number)
+    
+    Sys.sleep(5)  # Avoid being blocked
+    
+    page_data <- scrape_lavaux_oron_page(url)
+    if (is.null(page_data) || nrow(page_data) == 0) {
+      message("No more data available, stopping pagination.")
+      break
+    }
+    
+    all_data <- bind_rows(all_data, page_data)
+  }
+  
+  return(all_data)
+}
+
+# Base URL for Lavaux-Oron Apartments
+lavaux_oron_base_url <- "https://www.immoscout24.ch/fr/appartement/louer/region-lavauxoron"
+# Scrape all pages for Lavaux-Oron Apartments
+lavaux_oron_final_data <- scrape_lavaux_oron_all_pages(lavaux_oron_base_url)
+# Save to a CSV file
+write.csv(lavaux_oron_final_data, "lavaux_oron_cleaned_data.csv", row.names = FALSE)
+# Print a message when done
+message("Scraping complete! Data saved to 'lavaux_oron_cleaned_data.csv'.")
+
+# Code replacing datas
+# Replace descriptions by "apartment"
+lausanne_final_data$Description <- "Apartment"
+ouest_lausannois_final_data$Description <- "Apartment"
+lavaux_oron_final_data$Description <- "Apartment"
+
+# Replace descriptions by "House"
+lausanne_houses_final_data$Description <- "House"
+ouest_lausannois_houses_final_data$Description <- "House"
+lavaux_oron_houses_final_data$Description <- "House"
+
+# Code merged datas
+datasets_list <- list(lausanne_final_data, lausanne_houses_final_data, lavaux_oron_final_data, lavaux_oron_houses_final_data, ouest_lausannois_final_data, ouest_lausannois_houses_final_data)
+library(dplyr)
+
+# merge all datasets in one
+merged_dataset <- bind_rows(datasets_list)
+
+# Rename the 'Description' column to 'Building_type'
+colnames(merged_dataset)[colnames(merged_dataset) == "Description"] <- "Building_type"
+
+# Remove "pièces" from the "Rooms" column
+merged_dataset$Rooms <- gsub(" pièces| pièce", "", merged_dataset$Rooms)
+
+# Save the modified dataset to a new file
+write.csv(merged_dataset, "modified_dataset.csv", row.names = FALSE)
+
+#Extraction of the city or villages names from the address
+# Load the dataset
+merged_dataset <- read.csv("modified_dataset.csv", stringsAsFactors = FALSE)
+
+# Extract city/village name, including multi-word and hyphenated names
+merged_dataset <- merged_dataset %>%
+  mutate(
+    Location = str_extract(Address, "\\d{4}\\s[\\wÀ-ÿ\\-\\s]+") %>% # Extract postal code + full name (including spaces and hyphens)
+      str_remove("^\\d{4}\\s") %>%                        # Remove postal code
+      str_trim()                                          # Trim whitespace
+  )
+
+# Save the updated dataset
+write.csv(merged_dataset, "updated_dataset_with_location.csv", row.names = FALSE)
+
+# Homogenize the names of the villages
+merged_dataset <- merged_dataset %>%
+  mutate(
+    Location = str_to_title(Location),  # Standardize capitalization
+    Location = case_when(
+      str_detect(Location, "Lausanne|LAUSANNE|Lausanne 27|Lausanne 25") ~ "Lausanne",
+      str_detect(Location, "Le Mont-sur-Lausanne|Le-Mont-sur-Lausanne") ~ "Le-Mont-sur-Lausanne",
+      str_detect(Location, "Epalinges|Épalinges") ~ "Epalinges",
+      str_detect(Location, "Renens|RENENS|Renens VD") ~ "Renens",
+      str_detect(Location, "Crissier") ~ "Crissier",
+      str_detect(Location, "Pully|PULLY") ~ "Pully",
+      str_detect(Location, "Prilly|PRILLY") ~ "Prilly",
+      str_detect(Location, "Belmont-sur-Lausanne") ~ "Belmont-sur-Lausanne",
+      str_detect(Location, "Chavannes-Renens|Chavannes-près-Renens") ~ "Chavannes-près-Renens",
+      str_detect(Location, "Ecublens|Ecublens VD|Écublens") ~ "Ecublens",
+      str_detect(Location, "Cheseaux-sur-Lausanne") ~ "Cheseaux-sur-Lausanne",
+      str_detect(Location, "Romanel-sur-Lausanne|Romanel-s-Lausanne") ~ "Romanel-sur-Lausanne",
+      str_detect(Location, "Grandvaux") ~ "Grandvaux",
+      str_detect(Location, "Lutry") ~ "Lutry",
+      str_detect(Location, "Savigny") ~ "Savigny",
+      str_detect(Location, "Paudex") ~ "Paudex",
+      str_detect(Location, "Forel") ~ "Forel",
+      str_detect(Location, "Mézières VD") ~ "Mézières",
+      str_detect(Location, "Saint-Sulpice|St-Sulpice|St-Sulpice VD") ~ "Saint-Sulpice",
+      TRUE ~ Location  # Keep other names unchanged
+    )
+  )
+
+# Code editing number of rooms
+# Replace the values containing "m²" in the 'Rooms' column by 1
+merged_dataset$Rooms <- ifelse(grepl("m²", merged_dataset$Rooms, ignore.case = TRUE), 1, dataset$Rooms)
+cat("Les données contenant 'm²' dans la colonne 'Rooms' ont été remplacées par 1 dans 'dataset_complet'.\n")
+# Show the first rows of the dataset
+head(merged_dataset)
+
+# Code editing Locations and adding population variable
+# Define the demographic data as a data frame
+demographics <- data.frame(
+  Location = c(
+    "Lausanne", "Epalinges", "Jouxtens-Mézery", "Pully", "Chexbres", "Lutry",
+    "Puidoux", "Forel", "Savigny", "Rivaz", "Oron", "Cully", "Mézières", 
+    "Grandvaux", "Paudex", "Bourg-en-Lavaux", "Servion", "St-Saphorin",
+    "Maracon", "Renens", "Bussigny", "Crissier", "Saint-Sulpice", "Prilly",
+    "Ecublens", "Villars-Ste-Croix"
+  ),
+  Population = c(
+    144365, 9910, 1493, 19298, 2230, 10796, 3012, 2068, 3448, 326, 6173, 861,
+    3177, 91, 1538, 5411, 2172, 391, 567, 21466, 10645, 9327, 5138, 12439, 
+    13334, 980
+  )
+)
+
+# Replace locations by their township 
+merged_dataset <- merged_dataset %>%
+  mutate(
+    Location = case_when(
+      Location == "La Croix" ~ "Lutry",
+      Location == "La Conversion" ~ "Lutry",
+      Location == "Essertes" ~ "Oron",
+      Location == "Aran" ~ "Bourg-en-Lavaux",
+      Location == "Riex" ~ "Bourg-en-Lavaux",
+      Location == "Epesses" ~ "Bourg-en-Lavaux",
+      Location == "Chenaux" ~ "Oron",
+      Location == "Châtillens" ~ "Oron",
+      Location == "Palézieux" ~ "Oron",
+      Location == "Palézieux-Village" ~ "Oron",
+      Location == "Mollie-Margot" ~ "Savigny",
+      Location == "Les Cullayes" ~ "Servion",
+      Location == "Chesalles-Sur-Oron" ~ "Oron",
+      Location == "Oron-La-Ville" ~ "Oron",
+      Location == "Mézières Vd" ~ "Mézières",
+      Location == "Carrouge Vd" ~ "Mézières",
+      
+      TRUE ~ Location  # Keep all other locations as they are
+    )
+  )
+
+# Merge the demographic data into the dataset
+merged_dataset <- merged_dataset %>%
+  left_join(demographics, by = "Location")
+
+# Save the merged dataset to a file
+write.csv(merged_dataset, "merged_dataset_with_demographics.csv", row.names = FALSE)
+
+# Check the first rows of the merged dataset
+head(merged_dataset)
+
+# Code adding collocation and transports variables
+#Adding the variable "possible collocation" 
+# Check if the 'Rooms' column exists
+if ("Rooms" %in% colnames(merged_dataset)) {
+  # Add the new column 'possible_collocation'
+  merged_dataset <- merged_dataset %>% 
+    mutate(possible_collocation = ifelse(Rooms >= 2.5, "yes", "no"))
+  
+  # Display the first few rows
+  head(merged_dataset)
+} else {
+  stop("Error: The 'Rooms' column does not exist in the dataset.")
+}
+
+#Replacing the building type of appartment of 1 room by "Studio"
+merged_dataset <- merged_dataset %>%
+  mutate(Building_type = ifelse(Rooms == 1, "Studio", Building_type))
+
+# Save the updated dataset to a new file
+write.csv(merged_dataset, "merged_dataset_with_studio.csv", row.names = FALSE)
+
+# Check the first rows of the updated dataset
+head(merged_dataset)
+
+#Adding the "Transport indices" variable
+# Define the transport indices as a named vector
+transport_indices <- c(
+  "Lausanne" = 1.50, "Epalinges" = 1.25, "Jouxtens-Mézery" = 0.25, "Pully" = 1.25,
+  "Chexbres" = 0.25, "Lutry" = 1.25, "Puidoux" = 0.25, "Forel" = 0.25,
+  "Savigny" = 0.25, "Rivaz" = 0.25, "Oron" = 1.00, "Cully" = 0.25,
+  "Mézières Vd" = 0.25, "Grandvaux" = 1.25, "Paudex" = 1.25, 
+  "Bourg-en-Lavaux" = 1.25, "Servion" = 0.25, "St-Saphorin" = 0.25,
+  "Maracon" = 0.25, "Renens" = 1.50, "Crissier" = 1.50, "Prilly" = 1.50,
+  "Ecublens" = 1.50, "Bussigny" = 1.25, "Saint-Sulpice" = 1.25,
+  "Villars-Ste-Croix" = 0.25
+)
+
+# Clean and standardize the 'Location' column
+merged_dataset$Location <- trimws(as.character(merged_dataset$Location))
+
+# Add the 'Transport_Index' column using 'Location'
+merged_dataset$Transport_Index <- transport_indices[merged_dataset$Location]
+
+# Check for unmatched locations
+unmatched <- merged_dataset[is.na(merged_dataset$Transport_Index), ]
+print(unmatched)
+
+# Optional: Replace NA with a default value (e.g., 0)
+merged_dataset$Transport_Index[is.na(merged_dataset$Transport_Index)] <- 0
+
+# View the final dataset
+print(merged_dataset)
+
+# Code cleaning our dataset by deleting NAs
+# Remove rows with NA in 'Rooms' or 'Living_Space' columns
+cleaned_dataset <- merged_dataset %>%
+  filter(!is.na(Rooms) & !is.na(Living_Space))  # Keep only rows where these columns are not NA
+
+# Save the cleaned dataset to a new file
+write.csv(cleaned_dataset, "cleaned_dataset.csv", row.names = FALSE)
+
+# Check the first rows of the cleaned dataset
+head(cleaned_dataset)
+```
