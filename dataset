@@ -32,7 +32,7 @@
         // Charger le fichier CSV avec DataTables
         $(document).ready(function () {
             $('#dataset').DataTable({
-                ajax: "dataset.csv",  // Chemin vers votre fichier CSV
+                ajax: "cleaned_dataset_final.csv",  // Chemin vers votre fichier CSV
                 columns: [
                     { data: "Rooms" },
                     { data: "Living_Space" },
